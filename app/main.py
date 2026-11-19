@@ -45,6 +45,17 @@ def create_app():
         from app.archive import build_archive
         run=store.get(run_id)
         return application.response_class(build_archive(run),mimetype="text/csv",headers={"Content-Disposition":'attachment; filename="evidence.csv"'})
+    @application.get("/api/runs/<run_id>/identities")
+    def run_identities(run_id):
+        run=store.get(run_id)
+        return {"run_id":run_id,"identity":run.get("identity",{}),"policy_decision":run.get("identity",{}).get("decision",{}),"versions":store.versions(run_id)}
+    @application.post("/api/runs/<run_id>/identity")
+    def switch_identity(run_id):
+        payload=request.get_json(silent=True) or {}
+        if not isinstance(payload.get("version"),int): raise DomainError("BAD_VERSION","请提供版本号")
+        policy=payload.get("policy")
+        if not isinstance(policy,str): raise DomainError("BAD_IDENTITY_POLICY","请提供主体归属策略")
+        return store.switch_identity(run_id,payload["version"],policy)
     for index,(slug,title) in enumerate(MODULES,1):
         module=importlib.import_module(f"app.modules.m{index}_{slug}.handler")
         application.register_blueprint(module.bp)

@@ -25,6 +25,14 @@ docker compose exec -T app pytest -q
 
 拒绝规则优先于允许，授权必须同时命中资源、分区和生效窗；显式拒绝不得被宽授权覆盖。
 
+## 主体归属
+
+同一员工在访问数据与授权规则里可能用当前工号、历史工号、账号或邮箱等不同标识出现。每批运行会给出一份唯一的主体归属结论，授权命中、对账差异与导出都以此为准；原始标识始终保留。
+
+裁决采「严格共同凭据合并」：只有姓名与成本中心完全一致时才合并同一工号的多标识记录。历史工号可作为唯一标识命中原主体，但不得在凭据冲突时替人选边——错误合并同名不同成本中心的人无法事后证明选边依据。同名多人、仅凭姓名、共享账号指向多人、缺成本中心的记录一律隔离；批次主体结论不完整（或授权主体无法唯一归属）时禁止归档。
+
+可切换 `historical_no_first` 作对照，但需显式提交；切换成功会新增版本并保留旧版，失败则不改动旧结论与原始标识。相同输入同策略重跑复用同一批次，不新增结论。
+
 ## 演示
 
 1. 打开首页，核对当次计算、差异和隔离原因。
@@ -34,9 +42,9 @@ docker compose exec -T app pytest -q
 
 ## 输入与输出
 
-输入列见 `docs/DATA-DICTIONARY.md`。项目包含dirty.csv、clean.csv、legacy.csv，统一走实际导入路径。上传限制4MB，拒绝不带时区的时间。业务键按字符串保留，Decimal参与计算，空值不会当零。
+输入列见 `docs/DATA-DICTIONARY.md`。项目包含dirty.csv、clean.csv、legacy.csv、identity.csv，统一走实际导入路径。上传限制4MB，拒绝不带时区的时间。业务键按字符串保留，Decimal参与计算，空值不会当零。
 
-`POST /api/runs` 接收sample或csv；`GET /api/runs`返回历史批次；`POST /api/runs/<id>/review`需要version与decision；`GET /api/runs/<id>/archive`返回唯一证据导出。
+`POST /api/runs` 接收sample或csv；`GET /api/runs`返回历史批次；`POST /api/runs/<id>/review`需要version与decision；`GET /api/runs/<id>/archive`返回唯一证据导出（主体结论不完整时409）。`GET /api/runs/<id>/identities`查看每批主体归属结论与历次版本，`POST /api/runs/<id>/identity`切换归属策略。
 
 ## 范围
 

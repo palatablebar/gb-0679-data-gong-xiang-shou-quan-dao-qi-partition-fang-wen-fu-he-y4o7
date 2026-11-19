@@ -1,0 +1,11 @@
+﻿event_id,principal,resource,partition,access_time,observed,reported,note
+A001,analyst.legacy,orders,2026-09,2026-11-16T00:00:00Z,allowed,1,历史账号，同主键 analyst
+A002,zhang.san@corp,订单,2026-10,2026-11-16T00:00:00Z,allowed,1,邮箱账号归属 000100
+A003,E00123,客户,2026-10,2026-11-16T00:00:00Z,allowed,1,历史工号归属 000100
+A004,zhangsan,orders,2026-10,2026-11-16T00:00:00Z,allowed,1,共享账号归属 000100
+A005,zhangsan.west,orders,2026-10,2026-11-16T00:00:00Z,allowed,1,同名不同成本中心，独立主体 000101
+A006,张三,orders,2026-10,2026-11-16T00:00:00Z,allowed,1,仅姓名，同名两人，隔离
+A007,contractor,orders,2026-10,2026-11-16T00:00:00Z,allowed,1,共享账号指向两人，隔离
+A008,wangwu,orders,2026-10,2026-11-16T00:00:00Z,allowed,1,缺成本中心，凭据不完整
+A009,nobody,orders,2026-10,2026-11-16T00:00:00Z,blocked,0,未登记主体
+A010,000100,orders,2026-09,2026-11-16T00:00:00Z,allowed,1,当前工号直接命中

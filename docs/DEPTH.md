@@ -29,11 +29,27 @@
 | TRAP-07 | 上游结果空值 | 误报拒绝 | 隔离缺失 | `app/values.py` | `tests/test_m3.py::test_real_missing_decision_not_zero` |
 | TRAP-19 | 允许与拒绝重叠 | 后写覆盖 | 拒绝优先且排序证据 | `app/modules/m4_conflicts/rules.py` | `tests/test_m4.py::test_deny_priority_counterexample` |
 | TRAP-23 | 授权到期点 | 多放行一次 | 半开生效窗 | `app/modules/m3_grants/rules.py` | `tests/test_m3.py::test_expiry_endpoint_excluded` |
+| TRAP-27 | 同一员工多标识 | 精确匹配把受权访问判成拒绝 | 别名/历史工号/账号统一归属到工号主键 | `app/identity.py` | `tests/test_identity.py::test_historical_no_account_and_email_share_one_principal` |
+| TRAP-28 | 同名不同成本中心 | 只凭姓名把两人并成一个主体 | 姓名不是唯一标识，仅姓名即隔离 | `app/identity.py` | `tests/test_identity.py::test_same_name_different_cost_center_not_merged` |
+| TRAP-29 | 授权规则用旧标识 | 归属后命中不到授权 | 授权主体与访问主体用同一张表解析 | `app/modules/m3_grants/rules.py` | `tests/test_identity.py::test_grant_on_historical_no_matches_employee` |
+| TRAP-30 | 共享账号指向两人 | 静默选边 | 冲突隔离且禁止归档 | `app/identity.py` | `tests/test_identity.py::test_shared_account_pointing_to_two_people_conflicts` |
+| TRAP-31 | 凭据不完整 | 照样导出证据 | 凭据不全/未归属禁止归档 | `app/archive.py` | `tests/test_identity.py::test_incomplete_credentials_never_archive` |
+| TRAP-32 | 切换归属策略 | 覆盖旧结论或丢原始标识 | 同批次换出，版本存档 | `app/store.py` | `tests/test_identity.py::test_switch_to_historical_policy_keeps_old_version` |
+
+## 主体归属
+
+`identity_policy` 默认 `strict_shared_credentials`：只有当两条目录记录的共同凭据（姓名 + 成本中心）完全一致时才合并同一工号的多标识记录。历史工号只是标识之一，命中它可唯一归属，但不得在凭据冲突时替人「选边」。
+
+- 主键：工号。访问行与授权规则的 `principal` 先解析成主键，授权命中、对账、导出与页面均只看主键；原始标识保存在 `principal_original` 和归属结论的 `referenced` 里。
+- 不能唯一归属的情况一律隔离：同名多人（`IDENTITY_AMBIGUOUS`）、仅姓名（`IDENTITY_NAME_ONLY`）、未登记（`IDENTITY_UNRESOLVED`）、标识指向多人（`IDENTITY_CONFLICT`）、缺成本中心等（`IDENTITY_INCOMPLETE`）。
+- 归档门禁：主体结论 `complete=false` 或授权存在归属异常时，`/api/seals` 标记 `ready=false`，`/api/runs/<id>/archive` 返回 409，不产生证据文件。
+- 策略切换：`POST /api/runs/<id>/identity` 在同一批次内切换 `strict_shared_credentials` / `historical_no_first`，成功后版本 +1 并把旧版写入 `run_versions`；任何失败（版本过期、未知策略、结论不覆盖原始标识）都整体回滚，旧结论与原始标识原样保留。相同策略重复提交不改动批次。
+- 重跑：批次摘要含主体目录指纹，同输入同策略重跑只复用同一批次，不新增结论。
 
 ## 对账规则
 
-输入原始逻辑行=最终采纳来源行+隔离来源行+重复行+空白行+分段表头。派生记录用_sources保存完整来源，因此分组不丢行。业务预期合计与上游申报合计之差等于逐行差异之和。结果按输入摘要、规则版本及参数产生唯一批次，事务写入；同源重跑只复用已有批次。
+输入原始逻辑行=最终采纳来源行+隔离来源行+重复行+空白行+分段表头。派生记录用_sources保存完整来源，因此分组不丢行。业务预期合计与上游申报合计之差等于逐行差异之和。结果按输入摘要、规则版本、参数及主体目录指纹产生唯一批次，事务写入；同源重跑只复用已有批次。
 
 ## 已知不覆盖
 
-4MB以上文件需预先按业务键分批；不模拟生产支付与外部回调。人工复核只变更批次状态，不改写原始记录。
+4MB以上文件需预先按业务键分批；不模拟生产支付与外部回调。人工复核只变更批次状态，不改写原始记录。主体目录随参数传入，不连接 HR 主数据；目录本身不完整时只能阻止归档，不能自动补全。
